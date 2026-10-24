@@ -723,16 +723,15 @@ class AppState extends ChangeNotifier {
   Future<void> startUbuntuSession() async {
     try {
       _errorMessage = null;
-      final result = await UbuntuTabPlatform.executeCommand(
-        'bash ~/scripts/start-ubuntu.sh',
-      );
-      if (result.startsWith('Error:')) {
-        throw StateError(result);
-      }
       _isRunning = true;
       notifyListeners();
+      // DesktopActivity boots the embedded X server first, then starts the
+      // proot-Ubuntu session itself (LinuxRuntime.startUbuntuSessionDetached,
+      // gated on the X11 socket). Running start-ubuntu.sh here instead would
+      // exec into startxfce4 before any X server exists ("Cannot open display").
       await launchDesktopActivity();
     } catch (e) {
+      _isRunning = false;
       _errorMessage = 'Failed to start Ubuntu session: $e';
       notifyListeners();
     }
