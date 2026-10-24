@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts"
-DISTRO="ubuntu-24.04"
+DISTRO="ubuntu:24.04"
 PREFIX_STD="${PREFIX:-/data/data/com.termux/files/usr}"
 ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/$DISTRO"
 
