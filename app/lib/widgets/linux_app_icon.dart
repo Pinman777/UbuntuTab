@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:droiddesk/services/platform_bridge.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -43,7 +43,7 @@ class _LinuxAppIconState extends State<LinuxAppIcon> {
 
   Future<Map<String, dynamic>?> _load() => LinuxAppIcon._cache.putIfAbsent(
         widget.package,
-        () => DroidDeskPlatform.getLinuxAppIcon(
+        () => UbuntuTabPlatform.getLinuxAppIcon(
           widget.package,
           iconNames: widget.iconNames,
         ).catchError((_) => null),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/screens/setup/setup_progress.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/widgets/update_sheet.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/screens/setup/setup_progress.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/widgets/update_sheet.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -70,7 +70,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                 const SizedBox(height: 34),
                 Text(
-                      'Your desktop.\nNow on Android.',
+                      'Full Ubuntu.\nNow on Android.',
                       style: DroidTheme.headingXl,
                     )
                     .animate()
@@ -78,7 +78,7 @@ class WelcomeScreen extends StatelessWidget {
                     .slideY(begin: 0.08, curve: Curves.easeOutCubic),
                 const SizedBox(height: 18),
                 Text(
-                  'A complete Desktop Environment that runs locally on your phone.',
+                  'A complete Ubuntu 24.04 desktop that runs locally on your device.',
                   style: DroidTheme.bodyLg,
                 ).animate().fadeIn(delay: 180.ms, duration: 450.ms),
                 const SizedBox(height: 28),
@@ -94,7 +94,7 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 _Feature(
                   icon: Icons.desktop_mac_outlined,
-                  text: 'Desktop Environment, ready to work',
+                  text: 'XFCE desktop, ready to work',
                 ),
                 const Spacer(flex: 4),
                 SizedBox(
@@ -108,7 +108,7 @@ class WelcomeScreen extends StatelessWidget {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Set Up Desktop Environment'),
+                        Text('Install Ubuntu'),
                         SizedBox(width: 8),
                         Icon(Icons.arrow_forward_rounded, size: 19),
                       ],
@@ -118,7 +118,7 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 Center(
                   child: Text(
-                    'Ubuntu tools · Desktop Environment',
+                    'Ubuntu 24.04 · XFCE · QwenPaw',
                     style: DroidTheme.bodySm,
                   ),
                 ),

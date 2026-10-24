@@ -1,6 +1,6 @@
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/widgets/droid_ui.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/widgets/droid_ui.dart';
 import 'package:flutter/material.dart';
 
 /// How much space Linux uses on the phone, with a one-tap package cache clean-up.
@@ -26,7 +26,7 @@ class _StorageScreenState extends State<StorageScreen> {
   }
 
   Future<void> _load() async {
-    final info = await DroidDeskPlatform.getStorageInfo();
+    final info = await UbuntuTabPlatform.getStorageInfo();
     if (mounted) setState(() => _info = info);
   }
 
@@ -34,7 +34,7 @@ class _StorageScreenState extends State<StorageScreen> {
 
   Future<void> _clean() async {
     setState(() => _cleaning = true);
-    final freed = await DroidDeskPlatform.cleanPackageCache();
+    final freed = await UbuntuTabPlatform.cleanPackageCache();
     await _load();
     if (!mounted) return;
     setState(() => _cleaning = false);

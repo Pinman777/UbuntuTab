@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
 
-/// Shared building blocks for DroidDesk's grouped-card screens.
+/// Shared building blocks for UbuntuTab's grouped-card screens.
 
 /// Page header: round back button, title and subtitle.
 class DroidPageHeader extends StatelessWidget {

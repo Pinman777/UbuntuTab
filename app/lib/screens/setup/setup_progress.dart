@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/screens/home_screen.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/screens/home_screen.dart';
 
 /// Setup progress screen — step 3 of setup wizard.
 /// Shows download, extraction, and configuration progress.
@@ -67,49 +67,8 @@ class _SetupProgressScreenState extends State<SetupProgressScreen> {
       }
     }
 
-    final rooted = await state.detectRootForSetup();
     if (!mounted) return;
-
-    var useRoot = false;
-    if (rooted) {
-      final confirmed =
-          await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => AlertDialog(
-              icon: const Icon(
-                Icons.admin_panel_settings_rounded,
-                color: DroidTheme.accent,
-                size: 38,
-              ),
-              title: const Text('Root access detected'),
-              content: const Text(
-                'Your device is rooted. Continue with the rooted chroot '
-                'runtime for the best performance and full Linux support?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Continue with root'),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-      if (!confirmed) {
-        _started = false;
-        if (mounted) Navigator.of(context).maybePop();
-        return;
-      }
-      useRoot = true;
-    }
-
-    if (!mounted) return;
-    state.runSetup(useRoot: useRoot);
+    state.runSetup();
   }
 
   @override
@@ -263,7 +222,7 @@ class _SetupProgressScreenState extends State<SetupProgressScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text('Launch DroidDesk'),
+                          child: const Text('Launch UbuntuTab'),
                         ),
                       )
                       .animate()
@@ -285,62 +244,23 @@ class _SetupProgressScreenState extends State<SetupProgressScreen> {
   }
 
   Widget _buildChecklist(AppState state) {
-    final isChroot = state.hasRoot;
-    if (!isChroot) {
-      final progress = state.extractProgress;
-      return _checklistColumn([
-        _ChecklistItem(
-          label: 'Bootstrap environment',
-          done: progress >= 0.08,
-          active: progress < 0.08,
-          progress: progress < 0.08 ? progress / 0.08 : null,
-        ),
-        _ChecklistItem(
-          label: 'Configure package repositories',
-          done: progress >= 0.24,
-          active: progress >= 0.08 && progress < 0.24,
-        ),
-        _ChecklistItem(
-          label: 'Install Desktop Essentials',
-          done: progress >= 0.70,
-          active: progress >= 0.24 && progress < 0.70,
-        ),
-        _ChecklistItem(
-          label: 'Finalize Desktop Essentials',
-          done: state.isSetupComplete,
-          active: progress >= 0.70 && !state.isSetupComplete,
-        ),
-      ]);
-    }
-
-    final steps = [
-      _ChecklistItem(
-        label: isChroot ? 'Root access confirmed' : 'Bootstrap environment',
-        done:
-            state.hasRoot ||
-            (!state.isDownloading && state.downloadProgress == 0),
-        active: false,
-      ),
-      _ChecklistItem(
-        label: isChroot ? 'Download Ubuntu rootfs' : 'Install native packages',
-        done: state.downloadProgress >= 1.0,
-        active: state.isDownloading,
-        progress: state.isDownloading ? state.downloadProgress : null,
-      ),
-      _ChecklistItem(
-        label: isChroot ? 'Extract rootfs' : 'Configure desktop',
-        done: state.extractProgress >= 1.0,
-        active: state.isExtracting,
-        progress: state.isExtracting ? state.extractProgress : null,
-      ),
-      _ChecklistItem(
-        label: 'Configure Linux',
-        done: state.isSetupComplete,
-        active: state.extractProgress >= 1.0 && !state.isSetupComplete,
-      ),
+    final done = state.isSetupComplete ? 6 : state.setupStage;
+    final labels = [
+      'Bootstrap environment',
+      'Download Ubuntu 24.04 image',
+      'Install apt packages',
+      'Set up XFCE desktop',
+      'Install QwenPaw',
+      'Finalize',
     ];
-
-    return _checklistColumn(steps);
+    return _checklistColumn([
+      for (var i = 0; i < labels.length; i++)
+        _ChecklistItem(
+          label: labels[i],
+          done: done >= i + 1,
+          active: done == i && !state.isSetupComplete,
+        ),
+    ]);
   }
 
   Widget _buildInstallLog(String log) {
@@ -461,31 +381,13 @@ class _SetupProgressScreenState extends State<SetupProgressScreen> {
     }
 
     if (state.isExtracting || state.isInstallingDE) {
-      if (!state.hasRoot) {
-        return _PhaseInfo(
-          title: state.extractProgress < 0.08
-              ? 'Preparing Runtime'
-              : 'Installing Linux',
-          message: state.extractStatus.isNotEmpty
-              ? state.extractStatus
-              : 'Preparing native Termux environment...',
-          progress: state.extractProgress,
-          icon: state.extractProgress < 0.08
-              ? Icons.inventory_2_rounded
-              : Icons.terminal_rounded,
-          error: false,
-          complete: false,
-        );
-      }
       return _PhaseInfo(
-        title: state.isInstallingDE ? 'Installing Desktop' : 'Extracting',
+        title: 'Installing Ubuntu',
         message: state.extractStatus.isNotEmpty
             ? state.extractStatus
-            : 'Extracting filesystem...',
-        progress: 0.5 + state.extractProgress * 0.4, // 50–90% of total
-        icon: state.isInstallingDE
-            ? Icons.desktop_windows_rounded
-            : Icons.unarchive_rounded,
+            : 'Running ubuntu-setup.sh...',
+        progress: (state.setupStage + 1) / 7,
+        icon: Icons.terminal_rounded,
         error: false,
         complete: false,
       );

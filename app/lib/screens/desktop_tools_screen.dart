@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/widgets/droid_ui.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/widgets/droid_ui.dart';
 
 class DesktopToolsScreen extends StatefulWidget {
   const DesktopToolsScreen({super.key});
@@ -38,8 +38,8 @@ class _DesktopToolsScreenState extends State<DesktopToolsScreen> {
 
   Future<void> _loadDock() async {
     final values = await Future.wait([
-      DroidDeskPlatform.getAndroidApps(),
-      DroidDeskPlatform.getDockPackages(),
+      UbuntuTabPlatform.getAndroidApps(),
+      UbuntuTabPlatform.getDockPackages(),
     ]);
     if (!mounted) return;
     setState(() {
@@ -54,7 +54,7 @@ class _DesktopToolsScreenState extends State<DesktopToolsScreen> {
       _dockPackages = packages;
       _dockBusy = true;
     });
-    final saved = await DroidDeskPlatform.saveDockPackages(packages);
+    final saved = await UbuntuTabPlatform.saveDockPackages(packages);
     if (!mounted) return;
     setState(() => _dockBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -63,14 +63,14 @@ class _DesktopToolsScreenState extends State<DesktopToolsScreen> {
   }
 
   Future<void> _loadSnapshots() async {
-    final snapshots = await DroidDeskPlatform.listDesktopSnapshots();
+    final snapshots = await UbuntuTabPlatform.listDesktopSnapshots();
     if (mounted) setState(() => _snapshots = snapshots);
   }
 
   Future<void> _createSnapshot() async {
     setState(() => _snapshotBusy = true);
     try {
-      await DroidDeskPlatform.createDesktopSnapshot();
+      await UbuntuTabPlatform.createDesktopSnapshot();
       await _loadSnapshots();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,7 +111,7 @@ class _DesktopToolsScreenState extends State<DesktopToolsScreen> {
     if (confirmed != true) return;
     setState(() => _snapshotBusy = true);
     try {
-      final restored = await DroidDeskPlatform.restoreDesktopSnapshot(name);
+      final restored = await UbuntuTabPlatform.restoreDesktopSnapshot(name);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -150,7 +150,7 @@ class _DesktopToolsScreenState extends State<DesktopToolsScreen> {
       ),
     );
     if (confirmed == true) {
-      await DroidDeskPlatform.deleteDesktopSnapshot(name);
+      await UbuntuTabPlatform.deleteDesktopSnapshot(name);
       await _loadSnapshots();
     }
   }
@@ -684,7 +684,7 @@ class _AppIconState extends State<_AppIcon> {
 
   Future<Uint8List?> _load() => _AppIcon._cache.putIfAbsent(
         widget.package,
-        () => DroidDeskPlatform.getAppIcon(widget.package).catchError((_) => null),
+        () => UbuntuTabPlatform.getAppIcon(widget.package).catchError((_) => null),
       );
 
   @override

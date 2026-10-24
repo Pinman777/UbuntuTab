@@ -1,32 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/screens/welcome_screen.dart';
-import 'package:droiddesk/screens/home_screen.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/screens/welcome_screen.dart';
+import 'package:ubuntutab/screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  DroidDeskPlatform.init();
+  UbuntuTabPlatform.init();
 
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
-      child: const DroidDeskApp(),
+      child: const UbuntuTabApp(),
     ),
   );
 }
 
-class DroidDeskApp extends StatefulWidget {
-  const DroidDeskApp({super.key});
+class UbuntuTabApp extends StatefulWidget {
+  const UbuntuTabApp({super.key});
 
   @override
-  State<DroidDeskApp> createState() => _DroidDeskAppState();
+  State<UbuntuTabApp> createState() => _UbuntuTabAppState();
 }
 
-class _DroidDeskAppState extends State<DroidDeskApp> {
+class _UbuntuTabAppState extends State<UbuntuTabApp> {
   @override
   void initState() {
     super.initState();
@@ -56,7 +56,7 @@ class _DroidDeskAppState extends State<DroidDeskApp> {
     SystemChrome.setSystemUIOverlayStyle(overlayStyle);
 
     return MaterialApp(
-      title: 'DroidDesk',
+      title: 'UbuntuTab',
       debugShowCheckedModeBanner: false,
       theme: DroidTheme.lightThemeData,
       darkTheme: DroidTheme.darkThemeData,

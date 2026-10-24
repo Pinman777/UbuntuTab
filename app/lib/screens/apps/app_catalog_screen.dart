@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/widgets/droid_ui.dart';
-import 'package:droiddesk/widgets/linux_app_icon.dart';
-import 'package:droiddesk/widgets/package_operation_card.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/widgets/droid_ui.dart';
+import 'package:ubuntutab/widgets/linux_app_icon.dart';
+import 'package:ubuntutab/widgets/package_operation_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -129,7 +129,7 @@ class _AppCatalogScreenState extends State<AppCatalogScreen> {
   Future<void> _loadInstalled() async {
     if (mounted) setState(() => _loadingInstalled = true);
     try {
-      final packages = await DroidDeskPlatform.getInstalledNativePackages();
+      final packages = await UbuntuTabPlatform.getInstalledNativePackages();
       if (!mounted) return;
       setState(() {
         _installedPackages = packages.map(_PackageItem.fromMap).toList();
@@ -151,7 +151,7 @@ class _AppCatalogScreenState extends State<AppCatalogScreen> {
   Future<void> _search(String query) async {
     if (mounted) setState(() => _searching = true);
     try {
-      final packages = await DroidDeskPlatform.searchNativePackages(query);
+      final packages = await UbuntuTabPlatform.searchNativePackages(query);
       if (!mounted || query != _searchController.text.trim()) return;
       setState(() {
         _searchResults = packages.map(_PackageItem.fromMap).toList();
@@ -239,7 +239,7 @@ class _AppCatalogScreenState extends State<AppCatalogScreen> {
     _updatesChecked = true;
     setState(() => _loadingUpdates = _updates.isEmpty);
     try {
-      final cached = await DroidDeskPlatform.getUpgradablePackages();
+      final cached = await UbuntuTabPlatform.getUpgradablePackages();
       if (mounted) {
         setState(() {
           _updates = cached.map(_PackageItem.fromMap).toList();
@@ -247,7 +247,7 @@ class _AppCatalogScreenState extends State<AppCatalogScreen> {
           _checkingUpdates = true;
         });
       }
-      final fresh = await DroidDeskPlatform.getUpgradablePackages(refresh: true);
+      final fresh = await UbuntuTabPlatform.getUpgradablePackages(refresh: true);
       if (mounted) setState(() => _updates = fresh.map(_PackageItem.fromMap).toList());
     } catch (_) {
     } finally {

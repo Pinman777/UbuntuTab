@@ -1,7 +1,7 @@
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/services/update_service.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/services/update_service.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -65,7 +65,7 @@ class _UpdateSheetState extends State<UpdateSheet> with WidgetsBindingObserver {
 
   Future<void> _start() async {
     final state = context.read<AppState>();
-    if (!await DroidDeskPlatform.canInstallUpdates()) {
+    if (!await UbuntuTabPlatform.canInstallUpdates()) {
       if (mounted) setState(() => _step = _Step.permission);
       return;
     }
@@ -86,7 +86,7 @@ class _UpdateSheetState extends State<UpdateSheet> with WidgetsBindingObserver {
         builder: (dialogContext) => AlertDialog(
           title: const Text('Update now?'),
           content: const Text(
-            'Installing restarts DroidDesk. The running Linux desktop will stop; '
+            'Installing restarts UbuntuTab. The running Linux desktop will stop; '
             'your files and apps stay.',
           ),
           actions: [
@@ -195,7 +195,7 @@ class _UpdateSheetState extends State<UpdateSheet> with WidgetsBindingObserver {
         ],
         const SizedBox(height: 12),
         _notice(
-          'Installing restarts DroidDesk. Your Linux files and apps stay.',
+          'Installing restarts UbuntuTab. Your Linux files and apps stay.',
           DroidTheme.textMuted,
           Icons.info_outline_rounded,
         ),
@@ -276,7 +276,7 @@ class _UpdateSheetState extends State<UpdateSheet> with WidgetsBindingObserver {
                     Text('Allow app updates', style: DroidTheme.headingSm),
                     const SizedBox(height: 4),
                     Text(
-                      'Android needs your permission for DroidDesk to install its own updates. '
+                      'Android needs your permission for UbuntuTab to install its own updates. '
                       'On the next screen turn on "Allow from this source", then come back.',
                       style: DroidTheme.bodySm,
                     ),
@@ -290,7 +290,7 @@ class _UpdateSheetState extends State<UpdateSheet> with WidgetsBindingObserver {
         ElevatedButton(
           onPressed: () async {
             _waitingForPermission = true;
-            await DroidDeskPlatform.openInstallPermission();
+            await UbuntuTabPlatform.openInstallPermission();
           },
           child: const Text('Continue'),
         ),

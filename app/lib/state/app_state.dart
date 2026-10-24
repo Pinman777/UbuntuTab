@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/services/update_service.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/services/update_service.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
 
-/// Central state management for the entire DroidDesk app.
+/// Central state management for the entire UbuntuTab app.
 class AppState extends ChangeNotifier {
   // ── Theme State ──
   ThemeMode _themeMode = ThemeMode.dark;
@@ -17,7 +17,12 @@ class AppState extends ChangeNotifier {
   String _installedDE = '';
   String _selectedDistro = 'ubuntu';
   static const String _selectedDE = 'xfce4';
-  int _setupStep = 0; // 0=welcome, 1=distro, 2=de, 3=install, 4=done
+  int _setupStep = 0; // 0=welcome, 3=install, 4=done
+  // Ubuntu-first setup: scripts/ubuntu-setup.sh reports COMPLETED steps via
+  // [UBUNTUTAB:STEP:x] markers on stdout (x = 1..5: bootstrap, ubuntu image,
+  // apt packages, xfce, qwenpaw). 0 = bootstrap still in progress.
+  int _setupStage = 0;
+  bool _ubuntuInstalled = false; // persisted: ubuntu-setup.sh finished OK
 
   // ── Download/Install Progress ──
   double _downloadProgress = 0.0;
@@ -38,7 +43,7 @@ class AppState extends ChangeNotifier {
 
   // Terminal history
   final List<String> _terminalOutput = [
-    'DroidDesk Linux Terminal\nType commands below.\n',
+    'UbuntuTab Linux Terminal\nType commands below.\n',
   ];
   List<String> get terminalOutput => _terminalOutput;
 
@@ -68,6 +73,7 @@ class AppState extends ChangeNotifier {
   String get selectedDistro => _selectedDistro;
   String get selectedDE => _selectedDE;
   int get setupStep => _setupStep;
+  int get setupStage => _setupStage;
   double get downloadProgress => _downloadProgress;
   String get downloadStatus => _downloadStatus;
   double get extractProgress => _extractProgress;
@@ -86,8 +92,9 @@ class AppState extends ChangeNotifier {
   String get optionalInstallLog => _optionalInstallLog;
   bool get isProotTerminal => _isProotTerminal;
 
-  bool get isSetupComplete => _isBootstrapped && _installedDE.isNotEmpty;
-  bool get isDEInstalled => _installedDE.isNotEmpty;
+  bool get isSetupComplete =>
+      _isBootstrapped && (_ubuntuInstalled || _installedDE.isNotEmpty);
+  bool get isDEInstalled => _ubuntuInstalled || _installedDE.isNotEmpty;
 
   String get gpuType {
     final vendor = _deviceInfo['gpuVendor']?.toString() ?? '';
@@ -104,8 +111,8 @@ class AppState extends ChangeNotifier {
   AppLifecycleListener? _lifecycleListener;
 
   Future<void> initialize() async {
-    DroidDeskPlatform.onPackageOperationProgress = _onPackageProgress;
-    DroidDeskPlatform.onPackageOperationLog = _onPackageLog;
+    UbuntuTabPlatform.onPackageOperationProgress = _onPackageProgress;
+    UbuntuTabPlatform.onPackageOperationLog = _onPackageLog;
     _lifecycleListener ??= AppLifecycleListener(
       onResume: () {
         refreshStatus();
@@ -115,7 +122,7 @@ class AppState extends ChangeNotifier {
     await _loadThemeMode();
 
     // Set up progress callbacks
-    DroidDeskPlatform.onDownloadProgress = (progress, status) {
+    UbuntuTabPlatform.onDownloadProgress = (progress, status) {
       _downloadProgress = progress;
       _downloadStatus = status;
       if (progress < 0) {
@@ -127,7 +134,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     };
 
-    DroidDeskPlatform.onExtractProgress = (progress, status) {
+    UbuntuTabPlatform.onExtractProgress = (progress, status) {
       _extractProgress = progress;
       _extractStatus = status;
       if (progress < 0) {
@@ -140,7 +147,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     };
 
-    DroidDeskPlatform.onInstallProgress = (progress, status) {
+    UbuntuTabPlatform.onInstallProgress = (progress, status) {
       _extractProgress = progress; // reusing extract progress state for UI
       _extractStatus = status;
       _statusMessage = status;
@@ -157,7 +164,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     };
 
-    DroidDeskPlatform.onTerminalOutput = (text) {
+    UbuntuTabPlatform.onTerminalOutput = (text) {
       if (_terminalOutput.isEmpty) _terminalOutput.add('');
 
       final cleanedText = text.replaceAll(RegExp(r'.*\r(?!\n)'), '');
@@ -165,6 +172,13 @@ class AppState extends ChangeNotifier {
         _setupLog += cleanedText;
         if (_setupLog.length > 20000) {
           _setupLog = _setupLog.substring(_setupLog.length - 20000);
+        }
+        final marker = RegExp(
+          r'\[UBUNTUTAB:STEP:(\d)\]',
+        ).firstMatch(cleanedText);
+        if (marker != null) {
+          final stage = int.parse(marker.group(1)!);
+          if (stage > _setupStage) _setupStage = stage;
         }
       }
       if (_installingOptionalApp != null) {
@@ -187,7 +201,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     };
 
-    DroidDeskPlatform.onOptionalInstallProgress = (progress, status) {
+    UbuntuTabPlatform.onOptionalInstallProgress = (progress, status) {
       _optionalInstallProgress = progress.clamp(0.0, 1.0);
       _optionalInstallStatus = status;
       notifyListeners();
@@ -195,15 +209,16 @@ class AppState extends ChangeNotifier {
 
     await refreshStatus();
     await loadDeviceInfo();
-    DroidDeskPlatform.onUpdateProgress = _onUpdateProgress;
+    UbuntuTabPlatform.onUpdateProgress = _onUpdateProgress;
     checkForUpdate();
 
     final prefs = await SharedPreferences.getInstance();
     _autoStartDesktop = prefs.getBool('autoStartDesktop') ?? false;
+    _ubuntuInstalled = prefs.getBool('ubuntuInstalled') ?? false;
 
     if (_autoStartDesktop && isSetupComplete && !_isRunning) {
       // Auto-start desktop when the app (launcher) boots up
-      startLinux(mode: 'x11');
+      startUbuntuSession();
     }
   }
 
@@ -228,7 +243,7 @@ class AppState extends ChangeNotifier {
       }
       DroidTheme.currentThemeMode = _themeMode;
       notifyListeners();
-      await DroidDeskPlatform.updateStatusBarTheme(!isDarkMode);
+      await UbuntuTabPlatform.updateStatusBarTheme(!isDarkMode);
     } catch (_) {
       // Default to dark theme if preferences fail
     }
@@ -241,7 +256,7 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('theme_mode', mode.name);
-      await DroidDeskPlatform.updateStatusBarTheme(!isDarkMode);
+      await UbuntuTabPlatform.updateStatusBarTheme(!isDarkMode);
     } catch (_) {}
   }
 
@@ -255,7 +270,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> refreshStatus() async {
     try {
-      final status = await DroidDeskPlatform.getRuntimeStatus();
+      final status = await UbuntuTabPlatform.getRuntimeStatus();
       _isBootstrapped = status['isBootstrapped'] == true;
       _isRunning = status['isRunning'] == true;
       _hasRoot = status['hasRoot'] == true;
@@ -275,7 +290,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadDeviceInfo() async {
     try {
-      _deviceInfo = await DroidDeskPlatform.getDeviceInfo();
+      _deviceInfo = await UbuntuTabPlatform.getDeviceInfo();
       notifyListeners();
     } catch (e) {
       // Non-fatal — continue without device info
@@ -302,34 +317,56 @@ class AppState extends ChangeNotifier {
     await prefs.setBool('autoStartDesktop', value);
   }
 
-  Future<bool> detectRootForSetup() async {
-    _hasRoot = await DroidDeskPlatform.checkRoot();
-    notifyListeners();
-    return _hasRoot;
-  }
-
-  /// Main setup entry point. [useRoot] records confirmation from the
-  /// rooted-device dialog.
-  Future<void> runSetup({bool? useRoot}) async {
+  /// Main setup entry point: single Ubuntu-first flow (no root required).
+  ///
+  /// 1. Extracts the bundled native Termux bootstrap (Kotlin side).
+  /// 2. Runs `bash ~/scripts/ubuntu-setup.sh` inside the Termux session —
+  ///    the script (shipped by the setup package, see scripts/ in the repo)
+  ///    installs the proot Ubuntu 24.04 container, apt packages, XFCE and
+  ///    QwenPaw. Stdout is streamed into [setupLog]; stage markers
+  ///    `[UBUNTUTAB:STEP:1..5]` advance [setupStage] for the checklist.
+  Future<void> runSetup() async {
     try {
       _errorMessage = null;
       _setupLog = '';
+      _setupStage = 0;
       _setupStep = 3;
       notifyListeners();
 
-      // Detect root and choose path
-      final rootAvailable = await DroidDeskPlatform.checkRoot();
-      _hasRoot = rootAvailable && (useRoot ?? true);
+      _isExtracting = true;
+      _extractProgress = 0.0;
+      _extractStatus = 'Extracting native Termux bootstrap...';
+      _statusMessage = _extractStatus;
+      notifyListeners();
+      await UbuntuTabPlatform.setupBootstrap();
+
+      _extractProgress = 0.05;
+      _extractStatus = 'Installing Ubuntu 24.04 (proot)...';
+      _statusMessage = _extractStatus;
+      _isInstallingDE = true;
       notifyListeners();
 
-      if (_hasRoot) {
-        await _runChrootSetup();
-      } else {
-        await _runNativeSetup();
+      String result = '';
+      try {
+        result = await UbuntuTabPlatform.executeCommand(
+          'bash ~/scripts/ubuntu-setup.sh',
+        );
+      } catch (e) {
+        throw StateError('Ubuntu setup script failed: $e');
+      }
+      if (result.startsWith('Error:')) {
+        throw StateError('Ubuntu setup script failed: $result');
       }
 
+      _ubuntuInstalled = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('ubuntuInstalled', true);
+
+      _isExtracting = false;
+      _isInstallingDE = false;
+      _setupStage = 5;
       _setupStep = 4;
-      notifyListeners();
+      await refreshStatus();
     } catch (e) {
       _errorMessage = 'Setup failed: $e';
       _isDownloading = false;
@@ -337,64 +374,6 @@ class AppState extends ChangeNotifier {
       _isInstallingDE = false;
       notifyListeners();
     }
-  }
-
-  Future<void> _runNativeSetup() async {
-    _isExtracting = true;
-    _extractProgress = 0.0;
-    _extractStatus = 'Extracting native Termux bootstrap...';
-    _statusMessage = _extractStatus;
-    notifyListeners();
-    await DroidDeskPlatform.setupBootstrap();
-
-    _extractProgress = 0.08;
-    _extractStatus = 'Bootstrap environment ready';
-    _statusMessage = _extractStatus;
-    _isInstallingDE = true;
-    notifyListeners();
-    final installed = await DroidDeskPlatform.installDesktopNative(
-      de: _selectedDE,
-    );
-    if (!installed) {
-      throw StateError('Native Termux package installation failed');
-    }
-    _isExtracting = false;
-    _isInstallingDE = false;
-
-    await refreshStatus();
-  }
-
-  Future<void> _runChrootSetup() async {
-    _statusMessage = 'Downloading Ubuntu rootfs...';
-    _isDownloading = true;
-    _downloadProgress = 0.0;
-    notifyListeners();
-    if (!await DroidDeskPlatform.downloadRootfs(_selectedDistro)) {
-      throw StateError(
-        'Ubuntu download failed. Check your connection and retry.',
-      );
-    }
-
-    _isDownloading = false;
-    _isExtracting = true;
-    _extractProgress = 0.0;
-    _statusMessage = 'Extracting rootfs...';
-    notifyListeners();
-    if (!await DroidDeskPlatform.extractRootfs()) {
-      throw StateError('Ubuntu filesystem extraction failed');
-    }
-
-    _statusMessage =
-        'Installing desktop environment (this may take a while)...';
-    _isInstallingDE = true;
-    notifyListeners();
-    if (!await DroidDeskPlatform.installDesktopEnvironment(_selectedDE)) {
-      throw StateError('Desktop Essentials package installation failed');
-    }
-    _isExtracting = false;
-    _isInstallingDE = false;
-
-    await refreshStatus();
   }
 
   Future<void> runExtraction() async {
@@ -405,43 +384,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> installDesktopEnvironment() async {
-    try {
-      _isExtracting = true;
-      _extractProgress = 0.0;
-      _statusMessage = 'Installing Desktop Environment...';
-      _errorMessage = null;
-      notifyListeners();
-
-      if (_hasRoot) {
-        if (!await DroidDeskPlatform.installDesktopEnvironment(_selectedDE)) {
-          throw StateError('Desktop Essentials package installation failed');
-        }
-      } else {
-        final installed = await DroidDeskPlatform.installDesktopNative(
-          de: _selectedDE,
-        );
-        if (!installed) {
-          throw StateError('Native Termux package installation failed');
-        }
-      }
-
-      _isExtracting = false;
-      _isInstallingDE = false;
-      await refreshStatus();
-    } catch (e) {
-      _errorMessage = 'Installation failed: $e';
-      _isExtracting = false;
-      _isInstallingDE = false;
-      notifyListeners();
-    }
-  }
+  Future<void> installDesktopEnvironment() => runSetup();
 
   // ── Optional applications ──
 
   Future<void> refreshOptionalApps() async {
     try {
-      _optionalApps = await DroidDeskPlatform.getOptionalApps();
+      _optionalApps = await UbuntuTabPlatform.getOptionalApps();
       notifyListeners();
     } catch (_) {
       // The desktop remains usable even if package status cannot be queried.
@@ -457,7 +406,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final installed = await DroidDeskPlatform.installOptionalApp(appId);
+      final installed = await UbuntuTabPlatform.installOptionalApp(appId);
       await refreshOptionalApps();
       return installed;
     } finally {
@@ -507,7 +456,7 @@ class AppState extends ChangeNotifier {
   Future<String> _installedVersion() async {
     if (_appVersion.isEmpty) {
       try {
-        final info = await DroidDeskPlatform.getAppVersion();
+        final info = await UbuntuTabPlatform.getAppVersion();
         _appVersion = info['versionName']?.toString() ?? '';
       } catch (_) {}
     }
@@ -532,7 +481,7 @@ class AppState extends ChangeNotifier {
         if (_availableUpdate?.tag != release?.tag) _downloadedUpdatePath = null;
         _availableUpdate = release;
       }
-      if (release == null && manual) DroidDeskPlatform.cleanupUpdates();
+      if (release == null && manual) UbuntuTabPlatform.cleanupUpdates();
     } catch (error) {
       if (manual) {
         _updateError = 'Could not reach GitHub. Check your connection.';
@@ -564,7 +513,7 @@ class AppState extends ChangeNotifier {
       _updateDownloaded = 0;
       _updateTotal = release.apkSize;
       notifyListeners();
-      final result = await DroidDeskPlatform.downloadUpdate(
+      final result = await UbuntuTabPlatform.downloadUpdate(
         url: release.apkUrl,
         size: release.apkSize,
         tag: release.tag,
@@ -586,7 +535,7 @@ class AppState extends ChangeNotifier {
       _downloadedUpdatePath = path;
     }
     notifyListeners();
-    final opened = await DroidDeskPlatform.installUpdate(path);
+    final opened = await UbuntuTabPlatform.installUpdate(path);
     if (!opened) {
       _updateError = 'Could not open the installer.';
       _updateErrorCode = 'installer';
@@ -597,7 +546,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> cancelUpdateDownload() async {
     if (!_downloadingUpdate) return;
-    await DroidDeskPlatform.cancelUpdateDownload();
+    await UbuntuTabPlatform.cancelUpdateDownload();
   }
 
   // ── Package operations ──
@@ -688,7 +637,7 @@ class AppState extends ChangeNotifier {
     _startPackageOperation(package, displayName ?? package, iconNames, removing: false);
     var ok = false;
     try {
-      ok = await DroidDeskPlatform.installNativePackage(package);
+      ok = await UbuntuTabPlatform.installNativePackage(package);
     } catch (_) {}
     _finishPackageOperation(ok);
     return ok;
@@ -703,7 +652,7 @@ class AppState extends ChangeNotifier {
     _startPackageOperation(package, displayName ?? package, iconNames, removing: true);
     var ok = false;
     try {
-      ok = await DroidDeskPlatform.removeNativePackage(package);
+      ok = await UbuntuTabPlatform.removeNativePackage(package);
     } catch (_) {}
     _finishPackageOperation(ok);
     return ok;
@@ -721,7 +670,7 @@ class AppState extends ChangeNotifier {
     _packageStatus = 'Checking for updates...';
     var ok = false;
     try {
-      ok = await DroidDeskPlatform.upgradeAllPackages();
+      ok = await UbuntuTabPlatform.upgradeAllPackages();
     } catch (_) {}
     _finishPackageOperation(ok);
     return ok;
@@ -732,7 +681,7 @@ class AppState extends ChangeNotifier {
     _packageCancelling = true;
     _packageStatus = 'Cancelling installation...';
     notifyListeners();
-    await DroidDeskPlatform.cancelNativePackageOperation();
+    await UbuntuTabPlatform.cancelNativePackageOperation();
   }
 
   /// Hides the "finished" card on Home.
@@ -751,7 +700,7 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       _errorMessage = null;
-      final started = await DroidDeskPlatform.startLinux(
+      final started = await UbuntuTabPlatform.startLinux(
         de: _selectedDE,
         mode: mode,
         width: width,
@@ -768,9 +717,30 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Starts the Ubuntu session: runs scripts/start-ubuntu.sh inside the
+  /// Termux session (proot Ubuntu + XFCE on the embedded X11 server), then
+  /// opens the fullscreen desktop activity.
+  Future<void> startUbuntuSession() async {
+    try {
+      _errorMessage = null;
+      final result = await UbuntuTabPlatform.executeCommand(
+        'bash ~/scripts/start-ubuntu.sh',
+      );
+      if (result.startsWith('Error:')) {
+        throw StateError(result);
+      }
+      _isRunning = true;
+      notifyListeners();
+      await launchDesktopActivity();
+    } catch (e) {
+      _errorMessage = 'Failed to start Ubuntu session: $e';
+      notifyListeners();
+    }
+  }
+
   Future<void> launchDesktopActivity() async {
     try {
-      await DroidDeskPlatform.launchDesktopActivity();
+      await UbuntuTabPlatform.launchDesktopActivity();
     } catch (e) {
       _errorMessage = 'Failed to launch desktop activity: $e';
       notifyListeners();
@@ -779,7 +749,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> stopLinux() async {
     try {
-      await DroidDeskPlatform.stopLinux();
+      await UbuntuTabPlatform.stopLinux();
       _isRunning = false;
       notifyListeners();
     } catch (e) {
@@ -794,7 +764,7 @@ class AppState extends ChangeNotifier {
     try {
       _terminalOutput.add(isInput ? '$command\n' : '\$ $command\n');
       notifyListeners();
-      return await DroidDeskPlatform.executeCommand(command);
+      return await UbuntuTabPlatform.executeCommand(command);
     } catch (e) {
       return "Error executing command: $e";
     } finally {
@@ -813,7 +783,7 @@ class AppState extends ChangeNotifier {
   Future<void> startDebianShell() async {
     _isProotTerminal = true;
     clearTerminal();
-    await executeCommand('start-debian');
+    await executeCommand('proot-distro login ubuntu');
   }
 
   void appendTerminalOutput(String output) {
@@ -824,13 +794,13 @@ class AppState extends ChangeNotifier {
 
   void clearTerminal() {
     _terminalOutput.clear();
-    _terminalOutput.add('DroidDesk Linux Terminal\nType commands below.\n');
+    _terminalOutput.add('UbuntuTab Linux Terminal\nType commands below.\n');
     notifyListeners();
   }
 
   Future<void> interruptCommand() async {
     try {
-      await DroidDeskPlatform.interruptCommand();
+      await UbuntuTabPlatform.interruptCommand();
     } catch (e) {
       debugPrint("Error interrupting command: $e");
     }
