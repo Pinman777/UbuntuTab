@@ -8,7 +8,7 @@ set -euo pipefail
 REPO="https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts"
 DISTRO="ubuntu:24.04"
 PREFIX_STD="${PREFIX:-/data/data/com.termux/files/usr}"
-ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/$DISTRO"
+ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/ubuntu-24.04"
 
 c_ok()  { printf '\033[32m[OK]\033[0m %s\n' "$*"; }
 c_msg() { printf '\033[36m[*]\033[0m %s\n' "$*"; }
@@ -32,7 +32,7 @@ curl -fsSL "$REPO/postinstall.sh"   -o "$ROOTFS/root/postinstall.sh"
 curl -fsSL "$REPO/start-desktop.sh" -o "$ROOTFS/root/start-desktop.sh"
 
 c_msg "4/5: постинсталл Ubuntu (XFCE, firefox-esr, локали, QwenPaw; идемпотентен)..."
-proot-distro login "$DISTRO" -- /bin/bash /root/postinstall.sh
+proot-distro login ubuntu-24.04 -- /bin/bash /root/postinstall.sh
 
 c_msg "5/5: создание стартового скрипта ~/start-ubuntutab.sh ..."
 mkdir -p "$PREFIX_STD/tmp/.X11-unix" 2>/dev/null || true
