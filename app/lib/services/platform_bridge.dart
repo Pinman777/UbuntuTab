@@ -270,11 +270,12 @@ class UbuntuTabPlatform {
   // ── Unified desktop integration ──
 
   static Future<List<Map<String, dynamic>>> searchDesktopItems(
-    String query,
-  ) async {
+    String query, {
+    int limit = 80,
+  }) async {
     final result = await _channel.invokeMethod<List<dynamic>>(
       'searchDesktopItems',
-      {'query': query},
+      {'query': query, 'limit': limit},
     );
     return (result ?? const [])
         .map((item) => Map<String, dynamic>.from(item as Map))

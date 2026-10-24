@@ -632,6 +632,10 @@ class DesktopActivity : Activity() {
                     chrootRuntime.executeCommand("mkdir -p /tmp && mkfifo /tmp/android_intent_pipe && chmod 666 /tmp/android_intent_pipe") {}
                     AndroidAppSync.syncApps(this@DesktopActivity, rootfsPath)
                     startIntentListener(rootfsPath)
+                } else if (linuxRuntime.isUbuntuInstalled()) {
+                    // Ubuntu-first: the desktop lives in the proot container
+                    // (scripts/start-ubuntu.sh flow), not the native prefix.
+                    linuxRuntime.startUbuntuSessionDetached()
                 } else {
                     linuxRuntime.startSession(desktopEnv, "x11")
                 }

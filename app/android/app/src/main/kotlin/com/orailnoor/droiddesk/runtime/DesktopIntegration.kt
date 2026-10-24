@@ -85,6 +85,28 @@ class DesktopIntegration(private val context: Context) {
             .take(limit)
     }
 
+    /**
+     * Launch command for a proot Ubuntu container .desktop entry (Exec with
+     * %-field codes stripped, wrapped in xfce4-terminal for Terminal=true
+     * entries). Null when the id has no container .desktop file.
+     */
+    fun containerDesktopCommand(desktopId: String): String? {
+        if (!desktopId.matches(Regex("[A-Za-z0-9._+-]+"))) return null
+        val ubuntuRootfs = File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu-24.04")
+        val desktopFile = listOf(
+            File(ubuntuRootfs, "usr/share/applications/$desktopId.desktop"),
+            File(ubuntuRootfs, "root/.local/share/applications/$desktopId.desktop"),
+        ).firstOrNull(File::isFile) ?: return null
+        val fields = desktopFields(desktopFile)
+        val exec = fields["Exec"]?.replace(Regex("%[a-zA-Z]"), "")?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return null
+        return if (fields["Terminal"].equals("true", ignoreCase = true)) {
+            "xfce4-terminal --command \"$exec\""
+        } else {
+            exec
+        }
+    }
+
     fun createSnapshot(rooted: Boolean): Map<String, Any> {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         val output = File(snapshotsDir, "DroidDesk-$stamp.zip")

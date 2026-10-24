@@ -549,8 +549,9 @@ class MainActivity : FlutterActivity() {
                 // ── Android + Linux desktop integration ──
                 "searchDesktopItems" -> {
                     val query = call.argument<String>("query") ?: ""
+                    val limit = call.argument<Int>("limit") ?: 80
                     thread(name = "desktop-search") {
-                        val items = desktopIntegration.search(query, chrootRuntime.hasRoot())
+                        val items = desktopIntegration.search(query, chrootRuntime.hasRoot(), limit)
                         runOnUiThread { result.success(items) }
                     }
                 }
@@ -567,24 +568,44 @@ class MainActivity : FlutterActivity() {
                         "linux", "folder" -> {
                             thread(name = "launch-desktop-item") {
                                 val rooted = chrootRuntime.hasRoot()
+                                // Ubuntu-first: launch through the proot container when its
+                                // .desktop entry exists (paths of scripts/ubuntu-menu-sync.sh).
+                                val useContainer = !rooted && linuxRuntime.isUbuntuInstalled() &&
+                                    (kind == "folder" || desktopIntegration.containerDesktopCommand(id) != null)
                                 val running = if (rooted) chrootRuntime.isRunning() else linuxRuntime.isRunning()
                                 if (!running) {
+                                    // DesktopActivity boots the X server and, for the Ubuntu
+                                    // flow, the container session itself.
                                     runOnUiThread { openDesktop(startSession = true) }
                                     if (rooted) chrootRuntime.waitForDesktopReady("xfce4")
+                                    else if (useContainer) linuxRuntime.waitForX11Socket(20_000)
                                     else linuxRuntime.waitForDesktopReady(linuxRuntime.getInstalledDE())
                                 }
-                                val safeId = id.takeIf { it.matches(Regex("[A-Za-z0-9_.+-]+")) }
-                                val command = if (kind == "linux" && safeId != null) {
-                                    "DISPLAY=:0 gtk-launch '$safeId' >/dev/null 2>&1 &"
-                                } else {
-                                    val folder = when (id) {
-                                        "Downloads", "Documents", "Pictures" -> id
-                                        else -> ""
+                                if (useContainer) {
+                                    val command = if (kind == "linux") {
+                                        desktopIntegration.containerDesktopCommand(id)
+                                    } else {
+                                        val folder = when (id) {
+                                            "Downloads", "Documents", "Pictures" -> id
+                                            else -> ""
+                                        }
+                                        "thunar \"${if (folder.isEmpty()) "/root" else "/root/$folder"}\""
                                     }
-                                    "DISPLAY=:0 thunar \"${if (chrootRuntime.hasRoot()) "/root" else filesDir.absolutePath + "/home"}${if (folder.isEmpty()) "" else "/$folder"}\" >/dev/null 2>&1 &"
+                                    if (command != null) linuxRuntime.launchContainerCommand(command)
+                                } else {
+                                    val safeId = id.takeIf { it.matches(Regex("[A-Za-z0-9_.+-]+")) }
+                                    val command = if (kind == "linux" && safeId != null) {
+                                        "DISPLAY=:0 gtk-launch '$safeId' >/dev/null 2>&1 &"
+                                    } else {
+                                        val folder = when (id) {
+                                            "Downloads", "Documents", "Pictures" -> id
+                                            else -> ""
+                                        }
+                                        "DISPLAY=:0 thunar \"${if (chrootRuntime.hasRoot()) "/root" else filesDir.absolutePath + "/home"}${if (folder.isEmpty()) "" else "/$folder"}\" >/dev/null 2>&1 &"
+                                    }
+                                    if (rooted) chrootRuntime.executeCommand(command)
+                                    else linuxRuntime.executeCommand(command)
                                 }
-                                if (rooted) chrootRuntime.executeCommand(command)
-                                else linuxRuntime.executeCommand(command)
                                 runOnUiThread {
                                     if (running) openDesktop(startSession = false)
                                     result.success(true)

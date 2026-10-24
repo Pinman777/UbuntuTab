@@ -70,3 +70,49 @@ $ git status --short && git diff --stat
 ## Status
 
 **done** (код готов, сборка зелёная; подключение UI-потребителя грида — следующая итерация, device-QA — у zeon). Все границы L1 соблюдены.
+
+## T3c addendum — подключение UI-грида приложений (та же сессия, продолжение по заданию zeon)
+
+Закрывает friction №1 и open question №1 выше: грид подключён, выбран контракт `searchDesktopItems` (не apps.json).
+
+### Что подключено и где
+
+| Файл | Изменение |
+|---|---|
+| `app/lib/services/platform_bridge.dart` | `searchDesktopItems` + параметр `limit` (пробрасывается в Kotlin; при большом числе Android-приложений дефолт take(80) выталкивал бы Linux-ярлыки из алфавитной сортировки) |
+| `app/lib/screens/home_screen.dart` | Секция «Ubuntu applications» на HomeScreen (после Workspace, гейт `state.isDEInstalled`): GridView 4 колонки, тайл = иконка `LinuxAppIcon(package=<desktop-id>)` с letter-fallback + подпись; загрузка в initState (postFrameCallback), кнопка Refresh; тап → `launchDesktopItem('linux', id)`, ошибка → SnackBar |
+| `runtime/DesktopIntegration.kt` | `containerDesktopCommand(id)`: чистит `Exec=` от %-кодов, Terminal=true → обёртка `xfce4-terminal --command "…"`; возвращает null для неизвестного id |
+| `runtime/LinuxRuntime.kt` | Блок Ubuntu-контейнера: `isUbuntuInstalled()` (os-release в ROOTFS), `isX11SocketReady()`/`waitForX11Socket()` (сокет `filesDir/tmp/.X11-unix/X0` поднимает X11ServerService вместе с DesktopActivity), `startUbuntuSessionDetached()` (pulseaudio + proot-login `start-desktop.sh`, отслеживается как sessionProcess), `launchContainerCommand()` (короткая команда через отдельный `proot-distro login` с биндами как в start-ubuntu.sh: X11-сокет, /dev/dri, kgsl) |
+| `MainActivity.kt` | `launchDesktopItem` no-root: если контейнер установлен и у id есть контейнерный .desktop (или kind=folder) → контейнерный путь (startSession через DesktopActivity при неработающей сессии, ожидание X-сокета ≤20с, запуск через `launchContainerCommand`); иначе прежний нативный путь |
+| `view/DesktopActivity.kt` | mode=termux + `isUbuntuInstalled()` → `startUbuntuSessionDetached()` вместо нативной `startSession` (Ubuntu-first) |
+
+### Почему менялся Kotlin (выход за «только Dart»)
+
+Путь запуска из грида был неработоспособен для контейнера: `gtk-launch` уходит в нативный Termux-префикс (там нет ни gtk-launch, ни контейнерных приложений), а при живой контейнерной сессии `executeCommand` маршрутизируется в stdin `startxfce4`. Без Kotlin-фикса грид отображал бы ярлыки, но не запускал их. Изменения в тех же файлах, что T3a/T3b (границы `app/android/**` + `app/lib/**` разрешены заданием T3c).
+
+### Verify
+
+```
+$ cd app && ~/development/flutter/bin/flutter build apk --debug
+✓ Built build/app/outputs/flutter-apk/app-debug.apk    # EXIT=0
+
+$ git status --short (после коммита 957209b с T3a/T3b)
+ M MainActivity.kt / DesktopIntegration.kt / LinuxRuntime.kt / DesktopActivity.kt / home_screen.dart / platform_bridge.dart
+ 6 files changed, 307 insertions(+), 13 deletions(-)
+```
+
+### Friction (T3c)
+
+1. **Два способа старта одной сессии:** Dart-флоу `startUbuntuSession()` (executeCommand `bash ~/scripts/start-ubuntu.sh`) и новый `startUbuntuSessionDetached()` дублируют логику (pulseaudio, бинды). Скрипт — источник истины, Kotlin-копия может разъехаться; канонизировать при первой правке start-ubuntu.sh.
+2. **DesktopActivity reveal ждёт нативный XFCE:** `waitForDesktopReady` (pgrep xfdesktop/xfce4-panel в нативном префиксе) не увидит контейнерные процессы — после `startUbuntuSessionDetached` reveal уйдёт по 45-секундному таймауту с loading-оверлеем (десктоп при этом под ним уже живёт). Нужен контейнерный readiness-чек (pgrep внутри rootfs-дерева /proc или проверка через proot login) — отложено как open question, минимальная версия не раздувалась.
+3. **GridView без пагинации при сотнях .desktop** — на контейнере с XFCE+goodies ~100+ записей; shrinkWrap рендерит все тайлы. Для MVP ок, при лагах — SliverGrid + лимит.
+
+### Open questions (добавились)
+
+4. Контейнерный readiness для reveal (friction №2) — кандидат на T3/QA-итерацию.
+5. `restartSessionIfStopped` в DesktopActivity перезапускает сессию при возврате — для контейнерного пути теперь корректно (isRunning по sessionProcess), но живой прогон на устройстве обязателен.
+6. Автосинк menu-sync перед показом грида (прежний OQ-2) остаётся открытым; иконки резолвятся и без него (прямой скан rootfs в `containerIcon`).
+
+### Status (T3c)
+
+**done** (сетка подключена, запуск через контейнер, сборка зелёная; живой device-QA — у zeon: грид ≥5 ярлыков = QA-критерий 5 из FORK-ARCHITECTURE.md).

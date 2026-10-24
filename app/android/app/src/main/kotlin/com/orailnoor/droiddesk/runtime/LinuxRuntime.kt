@@ -2239,6 +2239,82 @@ class LinuxRuntime(private val context: Context) {
         Log.i(TAG, "Session stopped")
     }
 
+    // ── Ubuntu proot container (installed by scripts/ubuntu-setup.sh) ──
+
+    private val ubuntuRootfsDir: File get() = File(prefixDir, "var/lib/proot-distro/installed-rootfs/ubuntu-24.04")
+
+    fun isUbuntuInstalled(): Boolean = File(ubuntuRootfsDir, "etc/os-release").isFile
+
+    /** The embedded X server (X11ServerService, :x11 process) creates this socket once running. */
+    fun isX11SocketReady(): Boolean = File(tmpDir, ".X11-unix/X0").exists()
+
+    fun waitForX11Socket(timeoutMs: Long = 15_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (isX11SocketReady()) return true
+            Thread.sleep(150)
+        }
+        return isX11SocketReady()
+    }
+
+    /** proot-distro login with the binds of scripts/start-ubuntu.sh (X11 socket, GPU). */
+    private fun containerLoginPrefix(): String = buildString {
+        append("proot-distro login ubuntu-24.04")
+        val x11Dir = File(tmpDir, ".X11-unix")
+        if (x11Dir.isDirectory) append(" --bind '${x11Dir.absolutePath}:/tmp/.X11-unix'")
+        if (File("/dev/dri").exists()) append(" --bind /dev/dri:/dev/dri")
+        if (File("/dev/kgsl-3d0").exists()) append(" --bind /dev/kgsl-3d0:/dev/kgsl-3d0")
+        append(" -- env DISPLAY=:0 PULSE_SERVER=127.0.0.1 LANG=ru_RU.UTF-8")
+    }
+
+    private fun singleQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+
+    /**
+     * Starts the container desktop the way scripts/start-ubuntu.sh does, but
+     * detached from [executeCommand]: later app launches are not routed into
+     * the session's stdin. Requires the X server socket (the desktop view
+     * brings it up), so call after opening DesktopActivity.
+     */
+    fun startUbuntuSessionDetached(): Boolean {
+        if (!isUbuntuInstalled()) {
+            Log.w(TAG, "Ubuntu container is not installed; cannot start session")
+            return false
+        }
+        if (isRunning()) return true
+        if (!waitForX11Socket(10_000)) {
+            Log.w(TAG, "Embedded X server socket did not appear; cannot start the container session")
+            return false
+        }
+        val script = "pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true; " +
+            "pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 >/dev/null 2>&1 || true; " +
+            "exec ${containerLoginPrefix()} /usr/local/bin/start-desktop.sh"
+        return startDetachedProcess(script, "ubuntu-session", trackAsSession = true)
+    }
+
+    /** Runs a short command inside the container on the live X session (launcher grid launches). */
+    fun launchContainerCommand(command: String): Boolean =
+        startDetachedProcess("${containerLoginPrefix()} bash -c ${singleQuote(command)}", "container-launch")
+
+    private fun startDetachedProcess(script: String, name: String, trackAsSession: Boolean = false): Boolean = try {
+        val process = ProcessBuilder(listOf(File(binDir, "bash").absolutePath, "-c", script))
+            .directory(homeDir)
+            .redirectErrorStream(true)
+            .also { pb ->
+                pb.environment().clear()
+                pb.environment().putAll(getTermuxEnv())
+            }
+            .start()
+        if (trackAsSession) sessionProcess = process
+        Thread {
+            runCatching { process.inputStream.readBytes() }
+            runCatching { process.waitFor() }
+        }.start()
+        true
+    } catch (e: Exception) {
+        Log.e(TAG, "Detached process '$name' failed to start: ${e.message}")
+        false
+    }
+
     // ── Command Execution ──
 
     fun executeCommand(command: String, onOutput: ((String) -> Unit)? = null): String {

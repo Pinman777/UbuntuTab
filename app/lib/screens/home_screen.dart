@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:ubuntutab/theme/droid_theme.dart';
 import 'package:ubuntutab/widgets/package_operation_card.dart';
+import 'package:ubuntutab/widgets/linux_app_icon.dart';
 import 'package:ubuntutab/widgets/update_sheet.dart';
 import 'package:ubuntutab/screens/storage_screen.dart';
 import 'package:ubuntutab/state/app_state.dart';
@@ -286,6 +287,15 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // ── Ubuntu applications grid (T3c) ──
+              if (state.isDEInstalled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: const _LinuxAppsSection(),
+                  ),
+                ),
 
               SliverToBoxAdapter(
                 child: Padding(
@@ -1528,6 +1538,166 @@ class _StatusPill extends StatelessWidget {
             style: DroidTheme.label.copyWith(color: color, letterSpacing: 0.1),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Launcher grid of the Ubuntu container's applications (desktop entries found
+/// by the Kotlin scanner; launch goes through the proot container session).
+class _LinuxAppsSection extends StatefulWidget {
+  const _LinuxAppsSection();
+
+  @override
+  State<_LinuxAppsSection> createState() => _LinuxAppsSectionState();
+}
+
+class _LinuxAppsSectionState extends State<_LinuxAppsSection> {
+  List<Map<String, dynamic>> _apps = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final items = await UbuntuTabPlatform.searchDesktopItems('', limit: 400);
+      if (!mounted) return;
+      setState(() {
+        _apps = items.where((item) => item['kind'] == 'linux').toList();
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Ubuntu applications', style: DroidTheme.headingMd),
+            ),
+            if (_loading)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              IconButton(
+                onPressed: _load,
+                tooltip: 'Refresh applications',
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: DroidTheme.textSecondary,
+                  size: 21,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (!_loading && _apps.isEmpty)
+          Text(
+            'No Ubuntu applications found yet. They appear here after Ubuntu is installed.',
+            style: DroidTheme.bodySm.copyWith(color: DroidTheme.textMuted),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.86,
+            ),
+            itemCount: _apps.length,
+            itemBuilder: (context, index) {
+              final app = _apps[index];
+              return _LinuxAppTile(
+                id: app['id']?.toString() ?? '',
+                label: app['label']?.toString() ?? '',
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _LinuxAppTile extends StatelessWidget {
+  final String id;
+  final String label;
+
+  const _LinuxAppTile({required this.id, required this.label});
+
+  Future<void> _launch(BuildContext context) async {
+    final ok = await UbuntuTabPlatform.launchDesktopItem('linux', id);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not launch $label'),
+          backgroundColor: DroidTheme.error,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(DroidTheme.radiusMd),
+      onTap: () => _launch(context),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: DroidTheme.cardBg,
+          borderRadius: BorderRadius.circular(DroidTheme.radiusMd),
+          border: Border.all(color: DroidTheme.surfaceBorder),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            LinuxAppIcon(
+              package: id,
+              iconNames: const [],
+              fallback: _letterFallback(label),
+              size: 42,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: DroidTheme.bodySm.copyWith(height: 1.1),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _letterFallback(String name) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: DroidTheme.primaryLight.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+        style: DroidTheme.headingSm.copyWith(color: DroidTheme.primary),
       ),
     );
   }
