@@ -32,10 +32,19 @@ class DesktopIntegration(private val context: Context) {
         }
 
         val home = linuxHome(rooted)
+        // Canonical proot container path (scripts/ubuntu-menu-sync.sh: ROOTFS =
+        // $PREFIX/var/lib/proot-distro/installed-rootfs/ubuntu-24.04, PREFIX = filesDir/usr).
+        // Container entries come first so distinctBy keeps them over Termux-native duplicates.
+        val ubuntuRootfs = File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu-24.04")
         val appDirs = if (rooted) {
             listOf(File(context.filesDir, "rootfs/usr/share/applications"), File(home, ".local/share/applications"))
         } else {
-            listOf(File(context.filesDir, "usr/share/applications"), File(home, ".local/share/applications"))
+            listOf(
+                File(ubuntuRootfs, "usr/share/applications"),
+                File(ubuntuRootfs, "root/.local/share/applications"),
+                File(context.filesDir, "usr/share/applications"),
+                File(home, ".local/share/applications"),
+            )
         }
         appDirs.filter(File::isDirectory).flatMap { directory ->
             directory.walkTopDown().maxDepth(2).filter { it.isFile && it.extension == "desktop" }.toList()

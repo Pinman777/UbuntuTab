@@ -36,6 +36,7 @@ flutter:
     - assets/icons/logo.png
     - assets/bootstrap-aarch64.zip
     - assets/socket_hook.c
+    - assets/scripts/
 
   fonts:
     - family: JetBrainsMono

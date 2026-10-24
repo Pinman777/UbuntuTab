@@ -25,6 +25,16 @@ class LinuxRuntime(private val context: Context) {
         private const val ELF_PATCH_MARKER = ".elf_runpaths_patched"
         private const val DE_MARKER = ".de_installed"
 
+        // Ubuntu session scripts bundled under assets/scripts; deployed to $HOME/scripts
+        // by deploySessionScripts() so the install flow can run them in the Termux session.
+        private val SESSION_SCRIPT_ASSETS = listOf(
+            "ubuntu-setup.sh",
+            "postinstall.sh",
+            "start-desktop.sh",
+            "start-ubuntu.sh",
+            "ubuntu-menu-sync.sh",
+        )
+
         // ELF64 constants
         private const val ELFMAG0: Byte = 0x7f
         private const val ELFMAG1: Byte = 'E'.code.toByte()
@@ -255,7 +265,34 @@ class LinuxRuntime(private val context: Context) {
     fun setupBootstrap() {
         Log.i(TAG, "Setting up bootstrap environment...")
         listOf(prefixDir, binDir, libDir, tmpDir, homeDir).forEach { it.mkdirs() }
+        deploySessionScripts()
         Log.i(TAG, "Bootstrap directories ready. Base: ${baseDir.absolutePath}")
+    }
+
+    /**
+     * Copy the bundled Ubuntu session scripts (assets/scripts) into the Termux
+     * home so the install flow can run them (`bash ~/scripts/ubuntu-setup.sh`).
+     * Always overwritten on setup: the copies are tiny and app upgrades must
+     * refresh scripts deployed by an older build.
+     */
+    private fun deploySessionScripts() {
+        val scriptsDir = File(homeDir, "scripts")
+        if (!scriptsDir.isDirectory && !scriptsDir.mkdirs()) {
+            Log.e(TAG, "Could not create session scripts directory ${scriptsDir.absolutePath}")
+            return
+        }
+        for (name in SESSION_SCRIPT_ASSETS) {
+            try {
+                val dest = File(scriptsDir, name)
+                context.assets.open("flutter_assets/assets/scripts/$name").use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
+                dest.setExecutable(true, false)
+                Log.i(TAG, "Deployed session script $name to ${dest.absolutePath}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to deploy session script $name", e)
+            }
+        }
     }
 
     fun extractBootstrapIfNeeded(context: Context) {
@@ -268,6 +305,7 @@ class LinuxRuntime(private val context: Context) {
             wrapDpkgForPath()
             wrapUpdateAlternatives()
             ensureSocketHookPrebuilt()
+            deploySessionScripts()
             return
         }
 

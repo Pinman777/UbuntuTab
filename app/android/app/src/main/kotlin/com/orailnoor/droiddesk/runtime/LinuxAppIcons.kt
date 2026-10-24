@@ -28,10 +28,12 @@ object LinuxAppIcons {
         iconNames: List<String>,
     ): Map<String, Any>? {
         if (!SAFE_NAME.matches(packageName)) return null
+        exportedContainerIcon(context, packageName)?.let { return it }
         val localIconNames = prefixDir?.let { desktopIconNames(it, packageName) }.orEmpty()
         for (name in localIconNames) {
             prefixDir?.let { localIcon(it, name) }?.let { return it }
         }
+        containerIcon(context, packageName)?.let { return it }
         val candidates = (iconNames + localIconNames + packageName)
             .filter { SAFE_NAME.matches(it) }
             .distinct()
@@ -39,6 +41,67 @@ object LinuxAppIcons {
             papirusIcon(context, name)?.let { return it }
         }
         return null
+    }
+
+    /**
+     * Icon exported by scripts/ubuntu-menu-sync.sh into the shared launcher
+     * directory, keyed by desktop-file id. XPM exports are skipped because the
+     * Flutter side only renders PNG/SVG (placeholder covers the rest).
+     */
+    private fun exportedContainerIcon(context: Context, desktopId: String): Map<String, Any>? {
+        val iconsDir = File(context.filesDir, "home/.local/share/ubuntutab/apps/icons")
+        for (ext in listOf("png", "svg")) {
+            iconFromFile(File(iconsDir, "$desktopId.$ext"), ext)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Resolves the Icon= key of a proot Ubuntu container .desktop entry against
+     * the container's own icon theme tree (ROOTFS path mirrors
+     * scripts/ubuntu-menu-sync.sh: $PREFIX/var/lib/proot-distro/installed-rootfs/ubuntu-24.04).
+     */
+    private fun containerIcon(context: Context, desktopId: String): Map<String, Any>? {
+        val rootfs = File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu-24.04")
+        if (!rootfs.isDirectory) return null
+        val desktopFile = listOf(
+            File(rootfs, "usr/share/applications/$desktopId.desktop"),
+            File(rootfs, "root/.local/share/applications/$desktopId.desktop"),
+        ).firstOrNull(File::isFile) ?: return null
+        val iconName = runCatching {
+            desktopFile.useLines { lines ->
+                lines.firstOrNull { it.startsWith("Icon=") }?.removePrefix("Icon=")?.trim()
+            }
+        }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return null
+
+        val candidates = buildList {
+            if (iconName.startsWith("/")) {
+                add(File(rootfs, iconName.removePrefix("/")))
+            } else if (SAFE_NAME.matches(iconName)) {
+                val iconsRoot = File(rootfs, "usr/share/icons")
+                val themes = iconsRoot.listFiles()?.map { it.name }?.sorted().orEmpty()
+                for (size in listOf("512x512", "256x256", "128x128", "96x96", "64x64", "48x48", "32x32")) {
+                    for (theme in themes) add(File(iconsRoot, "$theme/$size/apps/$iconName.png"))
+                }
+                for (size in listOf("scalable", "256x256", "128x128", "48x48")) {
+                    for (theme in themes) add(File(iconsRoot, "$theme/$size/apps/$iconName.svg"))
+                }
+                add(File(rootfs, "usr/share/pixmaps/$iconName.png"))
+                add(File(rootfs, "usr/share/pixmaps/$iconName.svg"))
+            }
+        }
+        for (file in candidates) {
+            // XPM and extension-less files are not renderable on the Flutter side.
+            val ext = file.extension.lowercase()
+            if (ext != "png" && ext != "svg") continue
+            iconFromFile(file, if (ext == "svg") "svg" else "png")?.let { return it }
+        }
+        return null
+    }
+
+    private fun iconFromFile(file: File, format: String): Map<String, Any>? {
+        if (!file.isFile || file.length() !in 1..2_000_000) return null
+        return runCatching { mapOf("format" to format, "bytes" to file.readBytes()) }.getOrNull()
     }
 
     /** Icon names from the package's installed .desktop files, via dpkg's file list. */
