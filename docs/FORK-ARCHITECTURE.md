@@ -35,7 +35,7 @@
    - `proot-distro install ubuntu-24.04` + `postinstall.sh` внутри контейнера:
      - `apt`: xfce4, xfce4-goodies, terminal, firefox-esr (PPA mozillateam — ubuntu-пакет firefox это snap-заглушка, в proot не работает), mousepad, file-manager, `mesa-utils` (glxinfo), шрифты (noto + cyrillic), `localegen ru_RU.UTF-8`.
      - Python 3.12 (нативный в 24.04) + venv `/opt/qwenpaw`; **QwenPaw по умолчанию**: `pip install qwenpaw` (PyPI 2.2.2.post1, wheels aarch64/glibc проверены), ярлык «QwenPaw Console».
-     - Пользователь `ubuntu`, sudo, преднастроенная тема (тёмная, как DroidDesk).
+     - Пользователь: **root** (решение интегратора 2026-10-24: паттерн оригинала + дефолт proot-distro; без systemd/sudo-слоя в MVP).
    - Убираем из дефолтного флоу: установку нативных TUR-десктопов (XFCE/LXQt/MATE/KDE в Termux), Turnip-этап на не-Adreno, Andronix-стиль VNC.
 2. **Сессия `start-ubuntu.sh`** (M): `proot-distro login ubuntu --bind /dev:... -- /root/start-desktop.sh` → внутри: `dbus-launch --exit-with-session startxfce4`, `DISPLAY=:0` на сокет Termux:X11, `PULSE_SERVER`. Полноэкранный Termux:X11 активити из Flutter-оболочки по кнопке/автозапуску.
 3. **Menu-sync `ubuntu-menu-sync.sh`** (S-M): форк `proot-menu-sync.sh`: скан `/usr/share/applications/*.desktop` контейнера → иконки+ярлыки в лаунчер Flutter. Единственный источник приложений (нативного Termux-меню больше нет).
@@ -76,7 +76,9 @@
 
 ## 7. Разбиение для ACP-рук (Phase 2)
 
-- **T1** (qwen_code): D2+D3 — скрипты установки/сессии/sync + постинстолл Ubuntu (verify 3,4,5 на эмуляторе arm64 или устройстве).
+- **T1** (qwen_code): D2+D3 — скрипты установки/сессии/sync + постинстолл Ubuntu (verify 3,4,5 на эмуляторе arm64 или устройстве). ✅ done 2026-10-24 (commits 68f4989, e28e0a4)
+- **T3a** (integration): бандлинг scripts/ в ассеты Flutter + распаковка в ~/scripts при первой установке.
+- **T3b** (integration): сетка приложений Flutter читает манифест ~/.local/share/ubuntutab/apps.json (контракт T1: id/name/exec/terminal/icon).
 - **T2** (claude_code): D1+D5 — Flutter-флоу, брендинг-хуки, сборка APK (verify 1).
 - **T3** (Tech Lead + zeon): живой QA на обоих устройствах (verify 2,6,7), итерации.
 - Параллельные правки изолированы: T1 в `scripts/`, T2 в `app/` — конфликтов минимум; общий rebase-порядок согласовывает Tech Lead.
