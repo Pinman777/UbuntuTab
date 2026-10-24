@@ -24,9 +24,9 @@ class AppRelease {
   });
 }
 
-/// Checks GitHub Releases for a newer DroidDesk build.
+/// Checks GitHub Releases for a newer UbuntuTab build.
 class UpdateService {
-  static const repo = 'orailnoor/DroidDesk';
+  static const repo = 'Pinman777/ubuntu-tab';
   // Test builds can point at a local mock: --dart-define=DROIDDESK_UPDATE_URL=http://...
   static const _latestUrl = String.fromEnvironment(
     'DROIDDESK_UPDATE_URL',
@@ -93,7 +93,7 @@ class UpdateService {
       final request = await client.getUrl(Uri.parse(_latestUrl));
       request.headers
         ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json')
-        ..set(HttpHeaders.userAgentHeader, 'DroidDesk-Updater');
+        ..set(HttpHeaders.userAgentHeader, 'UbuntuTab-Updater');
       final response = await request.close().timeout(const Duration(seconds: 15));
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode != 200) {

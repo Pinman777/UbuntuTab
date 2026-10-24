@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:droiddesk/theme/droid_theme.dart';
-import 'package:droiddesk/widgets/package_operation_card.dart';
-import 'package:droiddesk/widgets/update_sheet.dart';
-import 'package:droiddesk/screens/storage_screen.dart';
-import 'package:droiddesk/state/app_state.dart';
-import 'package:droiddesk/services/platform_bridge.dart';
-import 'package:droiddesk/screens/setup/de_install_screen.dart';
-import 'package:droiddesk/screens/apps/app_catalog_screen.dart';
-import 'package:droiddesk/screens/desktop_tools_screen.dart';
+import 'package:ubuntutab/theme/droid_theme.dart';
+import 'package:ubuntutab/widgets/package_operation_card.dart';
+import 'package:ubuntutab/widgets/update_sheet.dart';
+import 'package:ubuntutab/screens/storage_screen.dart';
+import 'package:ubuntutab/state/app_state.dart';
+import 'package:ubuntutab/services/platform_bridge.dart';
+import 'package:ubuntutab/screens/setup/de_install_screen.dart';
+import 'package:ubuntutab/screens/apps/app_catalog_screen.dart';
+import 'package:ubuntutab/screens/desktop_tools_screen.dart';
 
 /// Home dashboard — shown after setup is complete.
 /// Central hub for launching the desktop, terminal, and managing the environment.
@@ -65,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('DroidDesk', style: DroidTheme.headingMd),
+                          Text('UbuntuTab', style: DroidTheme.headingMd),
                           Text(
                             state.isRunning
                                 ? 'Desktop Environment is running'
@@ -200,11 +200,11 @@ class HomeScreen extends StatelessWidget {
                                     ? Icons.stop_circle_rounded
                                     : Icons.desktop_mac_rounded,
                                 title: state.isRunning
-                                    ? 'Stop Server'
-                                    : 'Launch Desktop',
+                                    ? 'Stop Session'
+                                    : 'Open Ubuntu',
                                 subtitle: state.isRunning
-                                    ? 'Shutdown Linux environment'
-                                    : 'Open your Desktop Environment',
+                                    ? 'Shut down the Ubuntu session'
+                                    : 'Ubuntu 24.04 · XFCE desktop',
                                 color: state.isRunning
                                     ? DroidTheme.error
                                     : DroidTheme.primary,
@@ -221,14 +221,14 @@ class HomeScreen extends StatelessWidget {
                                       ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
-                                            'Desktop Environment is not installed. Complete setup first.',
+                                            'Ubuntu is not installed yet. Complete setup first.',
                                           ),
                                           backgroundColor: DroidTheme.error,
                                         ),
                                       );
                                       return;
                                     }
-                                    await state.startLinux(mode: 'x11');
+                                    await state.startUbuntuSession();
                                   }
                                 },
                               ),
@@ -593,8 +593,8 @@ class HomeScreen extends StatelessWidget {
                   _SettingsSectionLabel('System'),
                   FutureBuilder<List<bool>>(
                     future: Future.wait([
-                      DroidDeskPlatform.isDefaultLauncher(),
-                      DroidDeskPlatform.isBatteryOptimized(),
+                      UbuntuTabPlatform.isDefaultLauncher(),
+                      UbuntuTabPlatform.isBatteryOptimized(),
                     ]),
                     builder: (_, snapshot) {
                       final isLauncher = snapshot.data?[0] == true;
@@ -657,7 +657,7 @@ class HomeScreen extends StatelessWidget {
                               title: 'Battery optimization',
                               subtitle: 'Keep the session alive in background',
                               onTap: () {
-                                DroidDeskPlatform.requestBatteryOptimization();
+                                UbuntuTabPlatform.requestBatteryOptimization();
                                 Navigator.pop(sheetContext);
                               },
                             ),
@@ -680,7 +680,7 @@ class HomeScreen extends StatelessWidget {
                               subtitle: 'Open Linux when the phone starts',
                               onTap: () {
                                 Navigator.pop(sheetContext);
-                                DroidDeskPlatform.requestDefaultLauncher();
+                                UbuntuTabPlatform.requestDefaultLauncher();
                               },
                             ),
                         ],
@@ -702,7 +702,7 @@ class HomeScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Change default launcher?'),
         content: const Text(
-          'DroidDesk will stop opening automatically as your Home app. Android will ask you to choose another launcher.',
+          'UbuntuTab will stop opening automatically as your Home app. Android will ask you to choose another launcher.',
         ),
         actions: [
           TextButton(
@@ -717,7 +717,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true) {
-      await DroidDeskPlatform.unsetDefaultLauncher();
+      await UbuntuTabPlatform.unsetDefaultLauncher();
     }
   }
 

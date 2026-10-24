@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 /// All heavy work (bootstrap extraction, native pkg install, process management)
 /// runs on the Kotlin side. Flutter calls into Kotlin via MethodChannel and
 /// receives callbacks.
-class DroidDeskPlatform {
+class UbuntuTabPlatform {
   static const _channel = MethodChannel('com.droiddesk/core');
 
   // Callback handlers (set by the UI layer)
@@ -95,7 +95,7 @@ class DroidDeskPlatform {
     return await _channel.invokeMethod<bool>('canInstallUpdates') ?? false;
   }
 
-  /// Opens the "Install unknown apps" settings page for DroidDesk.
+  /// Opens the "Install unknown apps" settings page for UbuntuTab.
   static Future<void> openInstallPermission() async {
     await _channel.invokeMethod('openInstallPermission');
   }
