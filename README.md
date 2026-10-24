@@ -1,63 +1,48 @@
 # UbuntuTab
 
-Полноценная Ubuntu 24.04 на Android-планшете или телефоне — без root. Открываешь приложение → нажимаешь «Open Ubuntu» → работаешь в XFCE-десктопе: терминал, Firefox, LibreOffice, VS Code, Python и [QwenPaw](https://github.com/agentscope-ai/QwenPaw).
+Полноценная Ubuntu 24.04 с XFCE-десктопом на Android-планшете/телефоне — **без root**. Плюс предустановленный **QwenPaw** (агент-фреймворк) прямо в контейнере.
 
-Форк проекта [DroidDesk](https://github.com/orailnoor/DroidDesk) от orailnoor (GPL-3.0). Ключевое отличие: первичная и единственная среда — **proot-контейнер Ubuntu**, а не нативный Termux-десктоп.
+GPL-3.0 форк [DroidDesk](https://github.com/orailnoor/DroidDesk) (orailnoor) с архитектурой «Ubuntu-first»: настоящая proot-Ubuntu как основная среда, проверенный связкой Termux + Termux:X11.
 
-> ⚠️ UbuntuTab — независимый open-source проект (GPL-3.0), использующий модифицированные компоненты Termux:X11. Не аффилирован с Termux, Canonical или Ubuntu; торговые марки принадлежат их владельцам.
+## Установка (проверенный путь, v0.2)
 
-## Что работает
+**1.** Поставь два приложения:
+- [Termux с F-Droid](https://f-droid.org/packages/com.termux/) (НЕ из Google Play)
+- [Termux:X11 — termux-x11-universal-debug.apk](https://github.com/termux/termux-x11/releases/tag/nightly)
 
-- **proot-Ubuntu 24.04 (arm64)**: `apt`, компиляция (gcc, python), привычные deb-пакеты
-- **XFCE-десктоп** через встроенный Termux:X11 — без VNC
-- **Firefox ESR**, терминал, файловый менеджер, кириллица из коробки
-- **QwenPaw** — агент-фреймворк ставится в контейнер, ярлык «QwenPaw Console»
-- Автозапуск сессии, ярлыки приложений из Ubuntu в лаунчере (App Bridge / menu-sync)
+**2.** Открой Termux и вставь одну команду:
 
-## Требования
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts/termux-ubuntutab.sh)"
+```
 
-- Android-устройство **ARM64**, 8+ ГБ RAM, ~10 ГБ свободного места
-- Без root — работает везде; root не требуется и не используется
-- Клавиатура/мышь: Bluetooth или USB-C hub — резко улучшают опыт
+Установит: proot-distro + официальные зеркала Termux → Ubuntu 24.04 (контейнер `ubuntu`) → XFCE + firefox-esr + шрифты/локали ru_RU → QwenPaw (`/opt/qwenpaw`) → стартовый скрипт. ~15–30 минут, нужен Wi-Fi и питание.
 
-## Установка
+**3.** Запуск десктопа:
 
-1. Скачай свежий APK из [Releases](../../releases) и установи (sideload: «Настройки → Безопасность → Установка приложений из неизвестных источников»).
-2. Открой UbuntuTab → **Install Ubuntu** → жди (5–15 минут: загрузка образа + apt + XFCE + QwenPaw; прогресс виден в логе).
-3. Нажми **Open Ubuntu** — откроется XFCE-сессия.
+```bash
+bash ~/start-ubuntutab.sh
+```
 
-## Грабли по устройствам (важно!)
+Поднимет X-сервер, приложение Termux:X11 и XFCE. Повторный запуск — та же команда.
 
-### Huawei MatePad 11.5"S (HarmonyOS 4.2)
-- APK ставятся штатно (AppGallery-магазин не нужен).
-- Если сессия умирает при сворачивании: **Настройки → Приложения → UbuntuTab → Запуск → снять ограничения фоновой активности**; батарею — «Не ограничивать».
-- Вывод на монитор: USB-C (DP alt mode) — переходник USB-C→HDMI/DP; если образа нет — экран планшета и есть монитор.
-- У MatePad нет Google-сервисов — не мешает: всё локально.
+### Если GitHub не открывается (DPI)
+Если `curl` пишет `Could not resolve host: raw.githubusercontent.com` — ваш провайдер блокирует GitHub. Включи VPN **для приложения Termux** (например, AmneziaVPN → раздельное туннелирование → добавить Termux и Termux:X11).
 
-### Infinix Note 30 (XOS 13 / Android 13)
-- **Обязательно**: Настройки → О телефоне → 7 раз по «Номер сборки» (включить «Для разработчиков») → **включить «Не сохранять процессы»/«Лимит фоновых процессов» → «Стандартно», отключить «Убивать процессы»**, если пункт есть; XOS агрессивно убивает фоновые.
-- **Аккумулятор → UbuntuTab → Без ограничений** (иначе долгая установка прервётся).
-- Не сворачивай приложение во время установки.
+## Грабли конкретных устройств
 
-### Общее
-- Установка идёт в фоне приложения; прерывание = начать заново.
-- GPU: на Adreno работает аппаратное ускорение (Turnip/Zink); на Mali/Maleoon (Huawei/Infinix) — программный рендер (llvmpipe): XFCE быстрый, тяжёлые 3D-приложения — нет.
-- snap-пакеты не работают (нет snapd в proot) — используй deb-версии (Firefox ESR уже в образе).
+- **Aggressive battery/фоны**: Настройки → Для разработчиков → отключить лимит фоновых/дочерних процессов; в настройках батареи разрешить UbuntuTab/Termux фоновую работу. На Huawei: Приложения → Termux → Запуск → вручную + все тумблеры.
+- **Чёрный экран с курсором** в Termux:X11 → перезапусти `bash ~/start-ubuntutab.sh` с флагом `-legacy-drawing` (см. [README Termux:X11](https://github.com/termux/termux-x11)).
 
-## Команды (в терминале UbuntuTab)
+## Что тестировалось
 
-| Команда | Что делает |
-|---|---|
-| `bash ~/scripts/start-ubuntu.sh` | Запустить Ubuntu-сессию вручную |
-| `proot-distro login ubuntu` | Войти в контейнер без десктопа |
-| `bash ~/scripts/ubuntu-setup.sh` | Переустановка/починка окружения |
+- Infinix Note 30 (Android 14, Helio G99) — установка и XFCE-десктоп ✅
+- Huawei MatePad 11.5"S (HarmonyOS 4.2, Kirin 9000W) — установка ✅, десктоп — в проверке
 
-## Разработка
+## Legacy: standalone APK (экспериментально)
 
-- Flutter-приложение: `app/` (сборка: `cd app && flutter build apk --release`)
-- Скрипты окружения: `scripts/` (ubuntu-setup.sh, start-ubuntu.sh)
-- Архитектура форка: [docs/FORK-ARCHITECTURE.md](docs/FORK-ARCHITECTURE.md)
+В [Releases](https://github.com/Pinman777/UbuntuTab/releases) лежит автономный APK (форк приложения DroidDesk со встроенным бутстрапом). **Известный фундаментальный порок** (унаследован от DroidDesk, см. их COMPLIANCE.md «custom-prefix bootstrap»): пакеты termux-репозиториев несут зашитый путь `/data/data/com.termux/...`, и андроидная песочница запрещает их исполнение из чужого приложения (`bad interpreter: Permission denied`). Рекомендуемый путь — Termux-скрипт выше; APK оставлен как эксперимент.
 
-## Лицензия и credits
+## Состав и лицензии
 
-GPL-3.0 (только). Форк [DroidDesk](https://github.com/orailnoor/DroidDesk) © orailnoor (YouTube: [@orailnoor](https://youtube.com/@orailnoor)), который, в свою очередь, использует компоненты [Termux](https://termux.dev), [Termux:X11](https://github.com/termux/termux-x11), TUR и proot. См. [NOTICE.md](NOTICE.md) и [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Форк DroidDesk (GPL-3.0-only), включает компоненты Termux, Termux:X11, proot-distro, TUR. См. [NOTICE.md](NOTICE.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [LICENSES/](LICENSES/), [COMPLIANCE.md](COMPLIANCE.md).
