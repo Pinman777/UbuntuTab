@@ -8,7 +8,7 @@ set -euo pipefail
 REPO="https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts"
 DISTRO="ubuntu:24.04"
 PREFIX_STD="${PREFIX:-/data/data/com.termux/files/usr}"
-ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/ubuntu-24.04"
+ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/ubuntu"
 
 c_ok()  { printf '\033[32m[OK]\033[0m %s\n' "$*"; }
 c_msg() { printf '\033[36m[*]\033[0m %s\n' "$*"; }
@@ -32,7 +32,7 @@ curl -fsSL "$REPO/postinstall.sh"   -o "$ROOTFS/root/postinstall.sh"
 curl -fsSL "$REPO/start-desktop.sh" -o "$ROOTFS/root/start-desktop.sh"
 
 c_msg "4/5: постинсталл Ubuntu (XFCE, firefox-esr, локали, QwenPaw; идемпотентен)..."
-proot-distro login ubuntu-24.04 -- /bin/bash /root/postinstall.sh
+proot-distro login ubuntu -- /bin/bash /root/postinstall.sh
 
 c_msg "5/5: создание стартового скрипта ~/start-ubuntutab.sh ..."
 mkdir -p "$PREFIX_STD/tmp/.X11-unix" 2>/dev/null || true
@@ -44,7 +44,7 @@ pulseaudio --start --exit-idle-time=-1 2>/dev/null || true
 pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 >/dev/null 2>&1 || true
 termux-x11 :1 >/dev/null 2>&1 &
 sleep 2
-exec proot-distro login ubuntu-24.04 --shared-tmp -- \
+exec proot-distro login ubuntu --shared-tmp -- \
     env DISPLAY=:1 PULSE_SERVER=127.0.0.1 /usr/local/bin/start-desktop.sh
 EOS
 chmod 0755 "$HOME/start-ubuntutab.sh"
