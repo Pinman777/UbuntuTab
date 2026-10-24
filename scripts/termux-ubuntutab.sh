@@ -8,7 +8,7 @@ set -euo pipefail
 REPO="https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts"
 DISTRO="ubuntu:24.04"
 PREFIX_STD="${PREFIX:-/data/data/com.termux/files/usr}"
-ROOTFS="$PREFIX_STD/var/lib/proot-distro/installed-rootfs/ubuntu"
+ROOTFS="$PREFIX_STD/var/lib/proot-distro/containers/ubuntu/rootfs"
 
 c_ok()  { printf '\033[32m[OK]\033[0m %s\n' "$*"; }
 c_msg() { printf '\033[36m[*]\033[0m %s\n' "$*"; }
