@@ -42,7 +42,7 @@ cat > "$HOME/start-ubuntutab.sh" <<'EOS'
 set -euo pipefail
 pulseaudio --start --exit-idle-time=-1 2>/dev/null || true
 pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 >/dev/null 2>&1 || true
-termux-x11 :1 >/dev/null 2>&1 &
+termux-x11 :1 -dpi 168 >/dev/null 2>&1 &
 sleep 2
 exec proot-distro login ubuntu --shared-tmp -- \
     env DISPLAY=:1 PULSE_SERVER=127.0.0.1 /usr/local/bin/start-desktop.sh
