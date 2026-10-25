@@ -5,8 +5,9 @@
 set -euo pipefail
 REPO="https://raw.githubusercontent.com/Pinman777/UbuntuTab/main/scripts"
 
-echo "[pcs] качаю pc.sh..."
-curl -fsSL "$REPO/pc.sh" -o "$HOME/pc.sh"
+echo "[pcs] качаю pc.sh (основной источник, затем зеркало)..."
+curl -fsSL --retry 3 --retry-delay 2 "$REPO/pc.sh" -o "$HOME/pc.sh" \
+  || curl -fsSL --retry 3 --retry-delay 2 "https://cdn.jsdelivr.net/gh/Pinman777/UbuntuTab@main/scripts/pc.sh" -o "$HOME/pc.sh"
 
 echo "[pcs] запускаю в контейнере ubuntu (идемпотентно, 10-20 мин)..."
 proot-distro login ubuntu -- bash -c '
